@@ -40,8 +40,8 @@ experiments:
     data_type: "synthetic"
     num_labels: 2
     synthetic_data_paths:
-      - "./data/sst2/synthetic_negative.json"
-      - "./data/sst2/synthetic_positive.json"
+      - "./data/sst2/synthetic_negative.jsonl"
+      - "./data/sst2/synthetic_positive.jsonl"
 
   - name: "SST2_Mixed"
     task: "sst2"
@@ -49,8 +49,8 @@ experiments:
     num_labels: 2
     # human_data_source: "stanfordnlp/sst2"
     synthetic_data_paths:
-      - "./data/sst2/synthetic_negative.json"
-      - "./data/sst2/synthetic_positive.json"
+      - "./data/sst2/synthetic_negative.jsonl"
+      - "./data/sst2/synthetic_positive.jsonl"
 
   - name: "SNLI_Human"
     task: "snli"
@@ -63,9 +63,9 @@ experiments:
     data_type: "synthetic"
     num_labels: 3
     synthetic_data_paths:
-      - "./data/snli/synthetic_entailment.json"
-      - "./data/snli/synthetic_contradiction.json"
-      - "./data/snli/synthetic_neutral.json"
+      - "./data/snli/synthetic_entailment.jsonl"
+      - "./data/snli/synthetic_contradiction.jsonl"
+      - "./data/snli/synthetic_neutral.jsonl"
 
   - name: "SNLI_Mixed"
     task: "snli"
@@ -73,6 +73,6 @@ experiments:
     num_labels: 3
     # human_data_source: "stanfordnlp/snli"
     synthetic_data_paths:
-      - "./data/snli/synthetic_entailment.json"
-      - "./data/snli/synthetic_contradiction.json"
-      - "./data/snli/synthetic_neutral.json"
+      - "./data/snli/synthetic_entailment.jsonl"
+      - "./data/snli/synthetic_contradiction.jsonl"
+      - "./data/snli/synthetic_neutral.jsonl"
