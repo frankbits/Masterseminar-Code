@@ -2,6 +2,8 @@ import numpy as np
 from sklearn.metrics import f1_score, accuracy_score
 from transformers import AutoModelForSequenceClassification, TrainingArguments, Trainer, __version__ as transformers_version
 from packaging import version
+import json
+import os
 
 
 def compute_metrics(eval_pred):
@@ -54,6 +56,41 @@ def run_experiment(task_name, train_dataset, eval_dataset, num_labels, model_nam
         compute_metrics=compute_metrics,
     )
 
+    # Get dataset sizes
+    train_dataset_size = len(train_dataset)
+    eval_dataset_size = len(eval_dataset)
+
+    # Train the model
     trainer.train()
+
+    # Extract evaluation results per epoch from the trainer's log history
+    # Filter for entries that contain 'eval_loss' to get epoch-wise evaluation results
+    epoch_eval_history = [
+        log for log in trainer.state.log_history if "eval_loss" in log
+    ]
+
+    # Evaluate the model after training (this will be the best model if load_best_model_at_end is True)
+    final_eval_results = trainer.evaluate()
+
+    # Prepare data for quantitative analysis
+    experiment_results = {
+        "task_name": task_name,
+        "model_name": model_name,
+        "train_dataset_size": train_dataset_size,
+        "eval_dataset_size": eval_dataset_size,
+        "final_evaluation_results": final_eval_results,
+        "epoch_evaluation_history": epoch_eval_history,
+        "training_config": training_config
+    }
+
+    # Define path to save results
+    os.makedirs(current_training_args.output_dir, exist_ok=True)
+    results_file_path = os.path.join(current_training_args.output_dir, "experiment_results.json")
+
+    # Save results to a JSON file
+    with open(results_file_path, "w") as f:
+        json.dump(experiment_results, f, indent=4)
+
     print(f"--- Finished {task_name} Experiment ---")
-    return trainer.evaluate()
+    print(f"Results saved to {results_file_path}")
+    return final_eval_results
