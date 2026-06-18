@@ -1,13 +1,21 @@
 project_name: "master_seminar_comparison"
+
+# Seed for reproducibility.
+# This ensures that the same random samples are generated across different runs of the experiments.
 seed: 42
+
+# The base model used for generating synthetic data.
+# This should be a model that is capable of few-shot prompting and can generate high-quality text.
+ollama_model: "llama3.1"
+# The downstream model to be trained and evaluated on the human-annotated and synthetic datasets.
+# This should be a small model that is intended to be fine-tuned for the downstream tasks, such as sentiment analysis or natural language inference.
 model_name: "bert-base-uncased"
 
-# The number of samples per class for synthetic generation
-# and for the human-annotated baseline subsets.
+# The number of samples per class for synthetic or human-annotated data.
+# This is used to control the size of the training dataset for each experiment.
 sample_size_per_class: 10 #500
 
-ollama_model: "llama3.1"
-
+# Training parameters for the fine-tuning of the downstream model on the human-annotated and synthetic datasets.
 training_params:
   num_epochs: 3
   batch_size_train: 16
