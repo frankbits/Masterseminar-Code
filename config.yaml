@@ -13,6 +13,7 @@ model_name: "bert-base-uncased"
 
 # The number of samples per class for synthetic or human-annotated data.
 # This is used to control the size of the training dataset for each experiment.
+# has to be divisible by the number of datasets used for the mixed setting (human and synthetic -> 2 datasets, so sample_size_per_class has to be divisible by 2).
 sample_size_per_class: 10 #500
 
 # Training parameters for the fine-tuning of the downstream model on the human-annotated and synthetic datasets.

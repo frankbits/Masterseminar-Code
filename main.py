@@ -1,7 +1,8 @@
 import argparse
+import json
 
 import yaml
-from datasets import concatenate_datasets, Dataset
+from datasets import Dataset
 
 import generate_synthetic_data
 import dataset_manager
@@ -52,29 +53,26 @@ def main():
     training_config['seed'] = config['seed']
     training_config['results_dir'] = config['paths']['results_dir']
 
-    # Load human datasets once
+    # Load human SST-2
     raw_sst2_human = dataset_manager.load_sst2_dataset()
-    tokenized_human_sst2 = raw_sst2_human.map(
-        lambda x: tokenizer(x["sentence"], truncation=True, padding="max_length",
-                            max_length=training_config['max_seq_length']),
-        batched=True
-    )
-    # Get the full Features object for SST-2 from the human dataset
-    sst2_label_feature = tokenized_human_sst2["train"].features['label']
+    # Tokenize human SST-2
+    tokenized_human_sst2 = tokenize_data.tokenize(raw_sst2_human, tokenizer, training_config['max_seq_length'])
 
-
+    # Load human SNLI
     raw_snli_human = dataset_manager.load_snli_dataset()
-    tokenized_human_snli = raw_snli_human.map(
-        lambda x: tokenizer(x["premise"], x["hypothesis"], truncation=True, padding="max_length",
-                            max_length=training_config['max_seq_length']),
-        batched=True
-    )
-    # Get the full Features object for SNLI from the human dataset
-    snli_label_feature = tokenized_human_snli["train"].features['label']
+    # Tokenize human SNLI
+    tokenized_human_snli = tokenize_data.tokenize(raw_snli_human, tokenizer, training_config['max_seq_length'])
 
-    # Calculate total sizes for subsetting
-    sst2_total_size = config['sample_size_per_class'] * 2  # 2 classes for SST-2
-    snli_total_size = config['sample_size_per_class'] * 3  # 3 classes for SNLI
+    task_mapping = {
+        "sst2": {
+            "tokenized_human": tokenized_human_sst2,
+            "label_feature": tokenized_human_sst2["train"].features['label']
+        },
+        "snli": {
+            "tokenized_human": tokenized_human_snli,
+            "label_feature": tokenized_human_snli["train"].features['label']
+        }
+    }
 
     for experiment in config['experiments']:
         exp_name = experiment['name']
@@ -82,77 +80,40 @@ def main():
         data_type = experiment['data_type']
         num_labels = experiment['num_labels']
 
-        train_dataset = None
-        eval_dataset = None
+        if task not in task_mapping:
+            print(f"Skipping experiment '{exp_name}' due to unknown task '{task}'.")
+            continue
 
-        if task == "sst2":
-            eval_dataset = tokenized_human_sst2["validation"]
-            if data_type == "human":
-                train_dataset = tokenized_human_sst2["train"].shuffle(seed=config['seed']).select(range(sst2_total_size))
-            elif data_type == "synthetic":
-                tokenized_synth_sst2 = tokenize_data.prepare_sst2_dataset(
-                    experiment['synthetic_data_paths'], tokenizer, training_config['max_seq_length']
-                )
-                train_dataset = tokenized_synth_sst2["train"].shuffle(seed=config['seed']).select(range(min(len(tokenized_synth_sst2["train"]), sst2_total_size))).cast_column("label", sst2_label_feature)
-            elif data_type == "mixed":
-                tokenized_synth_sst2 = tokenize_data.prepare_sst2_dataset(
-                    experiment['synthetic_data_paths'], tokenizer, training_config['max_seq_length']
-                )
-                # Ensure 50/50 split: Take half of the total size from each source
-                half_size = sst2_total_size // 2
-                synth_available = len(tokenized_synth_sst2["train"])
-                if synth_available < half_size:
-                    # TODO: not sensible. should enforce same total number. ask user how to proceed in console? reask ai, cancel
-                    print(f"Warning: Requested {half_size} synthetic samples, but only {synth_available} available. Reducing split to {synth_available} human / {synth_available} synthetic for fairness.")
-                    target_half = synth_available
-                else:
-                    target_half = half_size
+        task_config = task_mapping[task]
+        tokenized_human = task_config['tokenized_human']
+        label_feature = task_config['label_feature']
 
-                human_part = tokenized_human_sst2["train"].shuffle(seed=config['seed']).select(range(target_half))
-                synth_part = tokenized_synth_sst2["train"].shuffle(seed=config['seed']).select(range(target_half)).cast_column("label", sst2_label_feature)
-                
-                mixed_sst2 = concatenate_datasets([
-                    human_part,
-                    synth_part
-                ])
-                train_dataset = mixed_sst2
-        elif task == "snli":
-            eval_dataset = tokenized_human_snli["validation"]
-            if data_type == "human":
-                train_dataset = tokenized_human_snli["train"].shuffle(seed=config['seed']).select(range(snli_total_size))
-            elif data_type == "synthetic":
-                tokenized_synth_snli = tokenize_data.prepare_snli_dataset(
-                    experiment['synthetic_data_paths'], tokenizer, training_config['max_seq_length']
-                )
-                train_dataset = tokenized_synth_snli["train"].shuffle(seed=config['seed']).select(range(min(len(tokenized_synth_snli["train"]), snli_total_size))).cast_column("label", snli_label_feature)
-            elif data_type == "mixed":
-                tokenized_synth_snli = tokenize_data.prepare_snli_dataset(
-                    experiment['synthetic_data_paths'], tokenizer, training_config['max_seq_length']
-                )
-                # Ensure 50/50 split
-                half_size = snli_total_size // 2
-                synth_available = len(tokenized_synth_snli["train"])
-                if synth_available < half_size:
-                    # TODO: not sensible. should enforce same total number. ask user how to proceed in console? reask ai, cancel
-                    print(f"Warning: Requested {half_size} synthetic samples, but only {synth_available} available. Reducing split to {synth_available} human / {synth_available} synthetic for fairness.")
-                    target_half = synth_available
-                else:
-                    target_half = half_size
+        eval_dataset = tokenized_human["validation"]
+        train_dataset_source = None
 
-                human_part = tokenized_human_snli["train"].shuffle(seed=config['seed']).select(range(target_half))
-                synth_part = tokenized_synth_snli["train"].shuffle(seed=config['seed']).select(range(target_half)).cast_column("label", snli_label_feature)
-                
-                mixed_snli = concatenate_datasets([
-                    human_part,
-                    synth_part
-                ])
-                train_dataset = mixed_snli
+        if data_type == "human":
+            train_dataset_source = tokenized_human["train"]
+        elif data_type in ("synthetic", "mixed"):
+            dataset_dict = dataset_manager.load_dataset_from_disk(experiment['synthetic_data_paths'])
+            tokenized_synth = tokenize_data.tokenize(
+                dataset_dict, tokenizer, training_config['max_seq_length']
+            )
+            if data_type == "synthetic":
+                train_dataset_source = tokenized_synth["train"].cast_column("label", label_feature)
+            else:  # data_type == mixed
+                train_dataset_source = [
+                    tokenized_human["train"],
+                    tokenized_synth["train"].cast_column("label", label_feature)
+                ]
+        train_dataset = dataset_manager.stratified_sample(
+            train_dataset_source, "label", config['sample_size_per_class'], seed=config['seed']
+        )
         if train_dataset is not None and eval_dataset is not None:
             print(f"\n--- Starting Experiment: {exp_name} ---")
             print(f"Training samples: {len(train_dataset)}")
             print(f"Evaluation samples: {len(eval_dataset)}")
             res = train.run_experiment(exp_name, train_dataset, eval_dataset, num_labels, config['model_name'], training_config)
-            print(f"Experiment {exp_name} completed. Final evaluation results: {res}")
+            print(f"Experiment {exp_name} completed. Final evaluation results: {json.dumps(res, indent=4)}")
 
 if __name__ == "__main__":
     main()
