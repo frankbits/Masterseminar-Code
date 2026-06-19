@@ -27,6 +27,54 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 
+def load_synthetic_log(log_path):
+    with open(log_path, 'r') as f:
+        return json.load(f)
+
+
+def flatten_synthetic_log(log_data):
+    totals_rows = []
+    task_totals_rows = []
+    tasks_rows = []
+    totals_rows.append({
+        "task": "TOTAL",
+        "generation_time_seconds": log_data.get("total_generation_time_seconds"),
+        "attempts": log_data.get("attempts"),
+        "examples_generated": log_data.get("total_examples_generated")
+    })
+    for key, value in log_data.items():
+        if not isinstance(value, dict):
+            continue
+
+        task = key
+        task_data = value
+        task_totals_rows.append({
+            "task": task,
+            "generation_time_seconds": task_data.get("total_generation_time_seconds"),
+            "attempts": task_data.get("attempts"),
+            "examples_generated": task_data.get("total_examples_generated")
+        })
+        for subclass, subclass_data in task_data.items():
+            if isinstance(subclass_data, dict) and "config" in subclass_data:
+                tasks_rows.append({
+                    "task": task,
+                    "subclass": subclass,
+                    "generation_time_seconds": subclass_data.get("generation_time_seconds"),
+                    "attempts": subclass_data.get("attempts"),
+                    "examples_generated": subclass_data.get("config").get("n")
+                })
+    task_totals_rows.append({
+        "task": "",
+        "generation_time_seconds": "",
+        "attempts": "",
+        "examples_generated": ""
+    })
+    task_totals_rows.extend(totals_rows)
+    task_totals_df = pd.DataFrame(task_totals_rows)
+    tasks_df = pd.DataFrame(tasks_rows)
+    return task_totals_df, tasks_df
+
+
 def find_result_files(results_dir: Path):
     """Findet alle experiment_results.json Dateien unterhalb von results_dir."""
     files = sorted(results_dir.glob("*/experiment_results.json"))
@@ -227,11 +275,32 @@ def main():
     parser = argparse.ArgumentParser(description="Aggregiert experiment_results.json Dateien zu Tabellen und Diagrammen.")
     parser.add_argument("--results-dir", type=str, default="../results", help="Ordner mit den Unterordnern je Bedingung (Standard: results)")
     parser.add_argument("--out-dir", type=str, default=None, help="Zielordner für Tabellen/Diagramme (Standard: gleich wie --results-dir)")
+    parser.add_argument("--synthetic-log", type=str, default="../data/synthetic_generation_log.json", help="Pfad zur Synthetische Generierungs-Logdatei")
     args = parser.parse_args()
 
     results_dir = Path(args.results_dir)
     out_dir = Path(args.out_dir) if args.out_dir else results_dir
 
+    # Load synthetic generation log
+    synthetic_log = load_synthetic_log(args.synthetic_log)
+
+    # Flatten and save synthetic log as CSV and Markdown
+    totals_df, tasks_df = flatten_synthetic_log(synthetic_log)
+    totals_df.to_csv(out_dir / "synthetic_generation_log_summary.csv", index=False)
+    tasks_df.to_csv(out_dir / "synthetic_generation_log_tasks.csv", index=False)
+    # Markdown-Tabelle (gut zum Copy-Paste fürs Paper)
+    md_path = out_dir / "synthetic_generation_log.md"
+    with open(md_path, "w", encoding="utf-8") as f:
+        f.write("## Synthetische Datengenerierung\n\n")
+        f.write("### Gesamt\n\n")
+        f.write(totals_df.to_markdown(index=False, floatfmt=".4f"))
+        f.write("\n\n### Tasks\n\n")
+        f.write(tasks_df.to_markdown(index=False, floatfmt=".4f"))
+        f.write("\n")
+    print(f"Synthetische Generierungs-Logdatei gespeichert: {out_dir / 'synthetic_generation_log.csv'}")
+    print(f"Synthetische Generierungs-Logdatei als Markdown gespeichert: {md_path}")
+
+    # Load and aggregate experiment results
     summary_df, history_df = load_all_results(results_dir)
     agg_df = aggregate_across_seeds(summary_df)
 
@@ -239,11 +308,16 @@ def main():
     history_df.to_csv(out_dir / "epoch_history_long.csv", index=False)
     print(f"Epoch-Verlauf gespeichert: {out_dir / 'epoch_history_long.csv'}")
 
+    # Plot results
     plot_bar_by_condition(agg_df, "eval_f1", out_dir / "plots" / "f1_by_condition.png", "Macro F1 je Bedingung")
     plot_bar_by_condition(agg_df, "eval_accuracy", out_dir / "plots" / "accuracy_by_condition.png", "Accuracy je Bedingung")
     plot_learning_curves(history_df, out_dir)
 
     print("\nFertig! Übersicht über die finalen Ergebnisse:\n")
+    print("Generierung:\n")
+    print(totals_df.to_string(index=False) + "\n")
+    print(tasks_df.to_string(index=False) + "\n")
+    print("Training:\n")
     print(summary_df.to_string(index=False))
 
 

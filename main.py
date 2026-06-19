@@ -1,5 +1,7 @@
 import argparse
 import json
+import os
+import time
 
 import yaml
 from datasets import Dataset
@@ -21,24 +23,88 @@ def main():
 
     data_dir = config['paths']['data_dir']
     n = config['sample_size_per_class']
-    m = config['ollama_model']
+    model_name = config['ollama_model']
 
     if not args.skip_gen:
         print(f"--- Generating Synthetic Data (n={n}) ---")
+
+        generation_log = {
+            "sst2": {
+                # ...
+                "total_generation_time_seconds": 0.0,
+                "attempts": 0,
+                "total_examples_generated": 0,
+            },
+            "snli": {
+                # ...
+                "total_generation_time_seconds": 0.0,
+                "attempts": 0,
+                "total_examples_generated": 0,
+            },
+            "total_generation_time_seconds": 0.0,
+            "attempts": 0,
+            "total_examples_generated": 0,
+        }
+
+        start_time = time.perf_counter()
+
         try:
             # SST2
-            s_neg = Dataset.from_list(generate_synthetic_data.generate_synthetic_sst2(m, "negative", 0, n))
-            s_pos = Dataset.from_list(generate_synthetic_data.generate_synthetic_sst2(m, "positive", 1, n))
+            sst2_neg_data, neg_generation_log = generate_synthetic_data.generate_synthetic_sst2(model_name, "negative", 0, n)
+            s_neg = Dataset.from_list(sst2_neg_data)
+            sst2_pos_data, pos_generation_log = generate_synthetic_data.generate_synthetic_sst2(model_name, "positive", 1, n)
+            s_pos = Dataset.from_list(sst2_pos_data)
+
+            # Write generated datasets to disk
             dataset_manager.write_dataset_to_disk(f"{data_dir}/sst2/synthetic_negative.jsonl", s_neg)
             dataset_manager.write_dataset_to_disk(f"{data_dir}/sst2/synthetic_positive.jsonl", s_pos)
 
+            # Class Logs
+            generation_log["sst2"]["negative"] = neg_generation_log
+            generation_log["sst2"]["positive"] = pos_generation_log
+
+            # Task Logs
+            generation_log["sst2"]["total_generation_time_seconds"] = time.perf_counter() - start_time
+            generation_log["sst2"]["attempts"] = neg_generation_log["attempts"] + pos_generation_log["attempts"]
+            generation_log["sst2"]["total_examples_generated"] = len(s_neg) + len(s_pos)
+
+            snli_start_time = time.perf_counter()
+
             # SNLI
-            s_ent = Dataset.from_list(generate_synthetic_data.generate_synthetic_snli(m, "entails", 0, n))
-            s_con = Dataset.from_list(generate_synthetic_data.generate_synthetic_snli(m, "contradicts", 1, n))
-            s_neu = Dataset.from_list(generate_synthetic_data.generate_synthetic_snli(m, "is neutral with respect to", 2, n))
+            snli_ent_data, ent_generation_log = generate_synthetic_data.generate_synthetic_snli(model_name, "entails", 0, n)
+            s_ent = Dataset.from_list(snli_ent_data)
+            snli_con_data, con_generation_log = generate_synthetic_data.generate_synthetic_snli(model_name, "contradicts", 1, n)
+            s_con = Dataset.from_list(snli_con_data)
+            snli_neu_data, neu_generation_log = generate_synthetic_data.generate_synthetic_snli(model_name, "is neutral with respect to", 2, n)
+            s_neu = Dataset.from_list(snli_neu_data)
+
+            # Write generated datasets to disk
             dataset_manager.write_dataset_to_disk(f"{data_dir}/snli/synthetic_entailment.jsonl", s_ent)
             dataset_manager.write_dataset_to_disk(f"{data_dir}/snli/synthetic_contradiction.jsonl", s_con)
             dataset_manager.write_dataset_to_disk(f"{data_dir}/snli/synthetic_neutral.jsonl", s_neu)
+
+            # Class Logs
+            generation_log["snli"]["entails"] = ent_generation_log
+            generation_log["snli"]["contradicts"] = con_generation_log
+            generation_log["snli"]["neutral"] = neu_generation_log
+
+            # Task Logs
+            generation_log["snli"]["total_generation_time_seconds"] = time.perf_counter() - snli_start_time
+            generation_log["snli"]["attempts"] = ent_generation_log["attempts"] + con_generation_log["attempts"] + neu_generation_log["attempts"]
+            generation_log["snli"]["total_examples_generated"] = len(s_ent) + len(s_con) + len(s_neu)
+
+            # Total Generation Logs
+            generation_log["total_generation_time_seconds"] = time.perf_counter() - start_time
+            generation_log["attempts"] = generation_log["sst2"]["attempts"] + generation_log["snli"]["attempts"]
+            generation_log["total_examples_generated"] = generation_log["sst2"]["total_examples_generated"] + generation_log["snli"]["total_examples_generated"]
+
+            # Define path to save results
+            os.makedirs(data_dir, exist_ok=True)
+            generation_log_file_path = os.path.join(data_dir, "synthetic_generation_log.json")
+
+            # Save results to a JSON file
+            with open(generation_log_file_path, "w") as f:
+                json.dump(generation_log, f, indent=4)
         except Exception as e:
             print(f"Error during synthetic data generation: {e}")
             print(f"! Aborting training and evaluation pipeline due to generation failure.")
