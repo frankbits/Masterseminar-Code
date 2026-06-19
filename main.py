@@ -24,19 +24,24 @@ def main():
 
     if not args.skip_gen:
         print(f"--- Generating Synthetic Data (n={n}) ---")
-        # SST2
-        s_neg = Dataset.from_list(generate_synthetic_data.generate_synthetic_sst2(m, "negative", 0, n))
-        s_pos = Dataset.from_list(generate_synthetic_data.generate_synthetic_sst2(m, "positive", 1, n))
-        dataset_manager.write_dataset_to_disk(f"{data_dir}/sst2/synthetic_negative.jsonl", s_neg)
-        dataset_manager.write_dataset_to_disk(f"{data_dir}/sst2/synthetic_positive.jsonl", s_pos)
+        try:
+            # SST2
+            s_neg = Dataset.from_list(generate_synthetic_data.generate_synthetic_sst2(m, "negative", 0, n))
+            s_pos = Dataset.from_list(generate_synthetic_data.generate_synthetic_sst2(m, "positive", 1, n))
+            dataset_manager.write_dataset_to_disk(f"{data_dir}/sst2/synthetic_negative.jsonl", s_neg)
+            dataset_manager.write_dataset_to_disk(f"{data_dir}/sst2/synthetic_positive.jsonl", s_pos)
 
-        # SNLI
-        s_ent = Dataset.from_list(generate_synthetic_data.generate_synthetic_snli(m, "entails", 0, n))
-        s_con = Dataset.from_list(generate_synthetic_data.generate_synthetic_snli(m, "contradicts", 1, n))
-        s_neu = Dataset.from_list(generate_synthetic_data.generate_synthetic_snli(m, "is neutral with respect to", 2, n))
-        dataset_manager.write_dataset_to_disk(f"{data_dir}/snli/synthetic_entailment.jsonl", s_ent)
-        dataset_manager.write_dataset_to_disk(f"{data_dir}/snli/synthetic_contradiction.jsonl", s_con)
-        dataset_manager.write_dataset_to_disk(f"{data_dir}/snli/synthetic_neutral.jsonl", s_neu)
+            # SNLI
+            s_ent = Dataset.from_list(generate_synthetic_data.generate_synthetic_snli(m, "entails", 0, n))
+            s_con = Dataset.from_list(generate_synthetic_data.generate_synthetic_snli(m, "contradicts", 1, n))
+            s_neu = Dataset.from_list(generate_synthetic_data.generate_synthetic_snli(m, "is neutral with respect to", 2, n))
+            dataset_manager.write_dataset_to_disk(f"{data_dir}/snli/synthetic_entailment.jsonl", s_ent)
+            dataset_manager.write_dataset_to_disk(f"{data_dir}/snli/synthetic_contradiction.jsonl", s_con)
+            dataset_manager.write_dataset_to_disk(f"{data_dir}/snli/synthetic_neutral.jsonl", s_neu)
+        except Exception as e:
+            print(f"Error during synthetic data generation: {e}")
+            print(f"! Aborting training and evaluation pipeline due to generation failure.")
+            return
 
 
     # --- Stage 2: Training & Evaluation ---
