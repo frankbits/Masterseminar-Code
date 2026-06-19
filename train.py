@@ -1,5 +1,5 @@
 import numpy as np
-from sklearn.metrics import f1_score, accuracy_score
+from sklearn.metrics import f1_score, accuracy_score, precision_score, recall_score
 from transformers import AutoModelForSequenceClassification, TrainingArguments, Trainer, __version__ as transformers_version
 from packaging import version
 import json
@@ -11,7 +11,9 @@ def compute_metrics(eval_pred):
     preds = np.argmax(logits, axis=-1)
     return {
         "accuracy": accuracy_score(labels, preds),
-        "f1": f1_score(labels, preds, average="macro")
+        "f1": f1_score(labels, preds, average="macro"),
+        "precision": precision_score(labels, preds, average="macro", zero_division=0),
+        "recall": recall_score(labels, preds, average="macro", zero_division=0)
     }
 def run_experiment(task_name, train_dataset, eval_dataset, num_labels, model_name, training_config):
     """
