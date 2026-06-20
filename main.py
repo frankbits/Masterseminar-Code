@@ -131,8 +131,14 @@ def main():
 
     tokenizer = tokenize_data.get_tokenizer(config['model_name'])
     training_config = config['training_params']
-    training_config['seed'] = config['seed']
     training_config['results_dir'] = config['paths']['results_dir']
+
+    # Seed used to select which examples go into the stratified subset
+    data_seed = config.get('data_seed', config.get('seed'))
+
+    # One or more seeds to repeat each experiment with (e.g. [42, 123, 7]).
+    # Falls back to a single seed for backwards compatibility with older configs.
+    seeds = config.get('seeds', [config.get('seed')])
 
     # Load human SST-2
     raw_sst2_human = dataset_manager.load_sst2_dataset()
@@ -188,20 +194,23 @@ def main():
                     tokenized_human["train"],
                     tokenized_synth["train"].cast_column("label", label_feature)
                 ]
-        # smaller subsets are also subsets of bigger subsets with same seed, so we can compare different sample sizes directly
+        # smaller subsets are also subsets of bigger subsets with same data_seed, so we can compare different sample sizes directly
         train_dataset = dataset_manager.stratified_sample(
-            train_dataset_source, "label", config['sample_size_per_class'], seed=config['seed']
+            train_dataset_source, "label", config['sample_size_per_class'], seed=data_seed
         )
 
         # Write train dataset to disk
         dataset_manager.write_dataset_to_disk(f"{data_dir}/{task}/{data_type}.jsonl", train_dataset.select_columns(task_config['columns_to_save']))
 
         if train_dataset is not None and eval_dataset is not None:
-            print(f"\n--- Starting Experiment: {exp_name} ---")
-            print(f"Training samples: {len(train_dataset)}")
-            print(f"Evaluation samples: {len(eval_dataset)}")
-            res = train.run_experiment(exp_name, train_dataset, eval_dataset, num_labels, config['model_name'], training_config)
-            print(f"Experiment {exp_name} completed. Final evaluation results: {json.dumps(res, indent=4)}")
+            for seed in seeds:
+                training_config['seed'] = seed
+                run_name = f"{exp_name}"
+                print(f"\n--- Starting Experiment: {run_name} (seed={seed}) ---")
+                print(f"Training samples: {len(train_dataset)}")
+                print(f"Evaluation samples: {len(eval_dataset)}")
+                res = train.run_experiment(run_name, train_dataset, eval_dataset, num_labels, config['model_name'], training_config)
+                print(f"Experiment {run_name} (seed={seed}) completed. Final evaluation results: {json.dumps(res, indent=4)}")
 
 if __name__ == "__main__":
     main()

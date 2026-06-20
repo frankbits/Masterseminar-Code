@@ -28,7 +28,7 @@ def run_experiment(task_name, train_dataset, eval_dataset, num_labels, model_nam
 
     # Create training arguments dictionary
     train_args_kwargs = {
-        "output_dir": f"{training_config['results_dir']}/{task_name}",
+        "output_dir": f"{training_config['results_dir']}/{task_name}/seed_{training_config['seed']}",
         "num_train_epochs": training_config['num_epochs'],
         "per_device_train_batch_size": training_config['batch_size_train'],
         "per_device_eval_batch_size": training_config['batch_size_eval'],

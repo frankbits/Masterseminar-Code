@@ -106,10 +106,15 @@ def flatten_synthetic_log(log_data):
 
 
 def find_result_files(results_dir: Path):
-    """Findet alle experiment_results.json Dateien unterhalb von results_dir."""
-    files = sorted(results_dir.glob("*/experiment_results.json"))
+    """Findet alle experiment_results.json Dateien unterhalb von results_dir.
+    Erwartete Struktur: results/<condition>/seed_<N>/experiment_results.json
+    """
+    files = sorted(results_dir.glob("*/seed_*/experiment_results.json"))
     if not files:
-        # Fallback: rekursiv suchen, falls die Struktur tiefer verschachtelt ist
+        # Fallback: alte flache Struktur results/<condition>/experiment_results.json
+        files = sorted(results_dir.glob("*/experiment_results.json"))
+    if not files:
+        # Letzter Fallback: rekursiv suchen, falls die Struktur anders verschachtelt ist
         files = sorted(results_dir.rglob("experiment_results.json"))
     return files
 
@@ -143,7 +148,12 @@ def load_all_results(results_dir: Path):
     history_rows = []
 
     for file_path in files:
-        condition_folder = file_path.parent.name
+        # New nested structure: results/<condition>/seed_<N>/experiment_results.json
+        # Old flat structure:    results/<condition>/experiment_results.json
+        if file_path.parent.name.startswith("seed_"):
+            condition_folder = file_path.parent.parent.name
+        else:
+            condition_folder = file_path.parent.name
         task, setting = parse_condition_name(condition_folder)
 
         with open(file_path, "r", encoding="utf-8") as f:

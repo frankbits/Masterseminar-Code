@@ -4,10 +4,15 @@ project_name: "master_seminar_comparison"
 # This ensures that the same random samples are generated across different runs of the experiments.
 generation_seed: 42
 
-# Training-Seed for reproducibility.
+# Data-Seed for reproducibility.
+# Seed for shuffling and splitting the human-annotated dataset into training and evaluation sets.
+# This ensures that the same data splits are used across different runs of the experiments.
+data_seed: 42
+
+# Training-Seeds for reproducibility.
 # This ensures that the same random initialization and data shuffling occur across different runs of the experiments using the same seed.
-# This should be set to three different values (e.g., 42, 43, 44) to run experiments with different random seeds and average the results for more robust conclusions.
-seed: 42
+# This should be set to three different values (e.g.: [42, 123, 7]) to run experiments with different random seeds and average the results for more robust conclusions.
+seeds: [42, 123, 7]
 
 # The base model used for generating synthetic data.
 # This should be a model that is capable of few-shot prompting and can generate high-quality text.
