@@ -132,11 +132,13 @@ def main():
     task_mapping = {
         "sst2": {
             "tokenized_human": tokenized_human_sst2,
-            "label_feature": tokenized_human_sst2["train"].features['label']
+            "label_feature": tokenized_human_sst2["train"].features['label'],
+            "columns_to_save": ["sentence", "label"]
         },
         "snli": {
             "tokenized_human": tokenized_human_snli,
-            "label_feature": tokenized_human_snli["train"].features['label']
+            "label_feature": tokenized_human_snli["train"].features['label'],
+            "columns_to_save": ["premise", "hypothesis", "label"]
         }
     }
 
@@ -171,9 +173,14 @@ def main():
                     tokenized_human["train"],
                     tokenized_synth["train"].cast_column("label", label_feature)
                 ]
+        # smaller subsets are also subsets of bigger subsets with same seed, so we can compare different sample sizes directly
         train_dataset = dataset_manager.stratified_sample(
             train_dataset_source, "label", config['sample_size_per_class'], seed=config['seed']
         )
+
+        # Write train dataset to disk
+        dataset_manager.write_dataset_to_disk(f"{data_dir}/{task}/{data_type}.jsonl", train_dataset.select_columns(task_config['columns_to_save']))
+
         if train_dataset is not None and eval_dataset is not None:
             print(f"\n--- Starting Experiment: {exp_name} ---")
             print(f"Training samples: {len(train_dataset)}")
