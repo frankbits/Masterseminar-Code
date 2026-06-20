@@ -50,9 +50,9 @@ def main():
 
         try:
             # SST2
-            sst2_neg_data, neg_generation_log = generate_synthetic_data.generate_synthetic_sst2(model_name, "negative", 0, n)
+            sst2_neg_data, neg_generation_log = generate_synthetic_data.generate_synthetic_sst2(model_name, config['generation_seed'], "negative", 0, n)
             s_neg = Dataset.from_list(sst2_neg_data)
-            sst2_pos_data, pos_generation_log = generate_synthetic_data.generate_synthetic_sst2(model_name, "positive", 1, n)
+            sst2_pos_data, pos_generation_log = generate_synthetic_data.generate_synthetic_sst2(model_name, config['generation_seed'], "positive", 1, n)
             s_pos = Dataset.from_list(sst2_pos_data)
 
             # Write generated datasets to disk
@@ -71,11 +71,11 @@ def main():
             snli_start_time = time.perf_counter()
 
             # SNLI
-            snli_ent_data, ent_generation_log = generate_synthetic_data.generate_synthetic_snli(model_name, "entails", 0, n)
+            snli_ent_data, ent_generation_log = generate_synthetic_data.generate_synthetic_snli(model_name, config['generation_seed'], "entails", 0, n)
             s_ent = Dataset.from_list(snli_ent_data)
-            snli_con_data, con_generation_log = generate_synthetic_data.generate_synthetic_snli(model_name, "contradicts", 1, n)
+            snli_con_data, con_generation_log = generate_synthetic_data.generate_synthetic_snli(model_name, config['generation_seed'], "contradicts", 1, n)
             s_con = Dataset.from_list(snli_con_data)
-            snli_neu_data, neu_generation_log = generate_synthetic_data.generate_synthetic_snli(model_name, "is neutral with respect to", 2, n)
+            snli_neu_data, neu_generation_log = generate_synthetic_data.generate_synthetic_snli(model_name, config['generation_seed'], "is neutral with respect to", 2, n)
             s_neu = Dataset.from_list(snli_neu_data)
 
             # Write generated datasets to disk
