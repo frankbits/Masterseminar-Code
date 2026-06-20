@@ -19,7 +19,12 @@ model_name: "bert-base-uncased"
 # The number of samples per class for synthetic or human-annotated data.
 # This is used to control the size of the training dataset for each experiment.
 # has to be divisible by the number of datasets used for the mixed setting (human and synthetic -> 2 datasets, so sample_size_per_class has to be divisible by 2).
-sample_size_per_class: 10 #500
+sample_size_per_class: 1000
+# The number of samples to generate in each batch when generating synthetic data.
+# The `sample_size_per_class` gets divided into batches of this size for generation.
+generation_batch_size: 50
+# The maximum number of attempts to automatically generate a valid sample for each class during synthetic data generation.
+generation_max_attempts: 3
 
 # Training parameters for the fine-tuning of the downstream model on the human-annotated and synthetic datasets.
 training_params:

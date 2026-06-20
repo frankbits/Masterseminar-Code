@@ -28,31 +28,37 @@ def main():
     if not args.skip_gen:
         print(f"--- Generating Synthetic Data (n={n}) ---")
 
+        batch_size = config.get('generation_batch_size', 25)
+        max_attempts = config.get('generation_max_attempts', 3)
+
         generation_log = {
             "sst2": {
                 # ...
-                "total_generation_time_seconds": 0.0,
-                "attempts": 0,
-                "total_examples_generated": 0,
+                "generation_time_seconds": 0.0,
+                "total_retries": 0,
+                "items_generated": 0,
+                "aborted": False,
             },
             "snli": {
                 # ...
-                "total_generation_time_seconds": 0.0,
-                "attempts": 0,
-                "total_examples_generated": 0,
+                "generation_time_seconds": 0.0,
+                "total_retries": 0,
+                "items_generated": 0,
+                "aborted": False,
             },
-            "total_generation_time_seconds": 0.0,
-            "attempts": 0,
-            "total_examples_generated": 0,
+            "generation_time_seconds": 0.0,
+            "total_retries": 0,
+            "items_generated": 0,
+            "aborted": False,
         }
 
         start_time = time.perf_counter()
 
         try:
             # SST2
-            sst2_neg_data, neg_generation_log = generate_synthetic_data.generate_synthetic_sst2(model_name, config['generation_seed'], "negative", 0, n)
+            sst2_neg_data, neg_generation_log = generate_synthetic_data.generate_synthetic_sst2(model_name, config['generation_seed'], "negative", 0, n, batch_size, max_attempts)
             s_neg = Dataset.from_list(sst2_neg_data)
-            sst2_pos_data, pos_generation_log = generate_synthetic_data.generate_synthetic_sst2(model_name, config['generation_seed'], "positive", 1, n)
+            sst2_pos_data, pos_generation_log = generate_synthetic_data.generate_synthetic_sst2(model_name, config['generation_seed'], "positive", 1, n, batch_size, max_attempts)
             s_pos = Dataset.from_list(sst2_pos_data)
 
             # Write generated datasets to disk
@@ -64,18 +70,19 @@ def main():
             generation_log["sst2"]["positive"] = pos_generation_log
 
             # Task Logs
-            generation_log["sst2"]["total_generation_time_seconds"] = time.perf_counter() - start_time
-            generation_log["sst2"]["attempts"] = neg_generation_log["attempts"] + pos_generation_log["attempts"]
-            generation_log["sst2"]["total_examples_generated"] = len(s_neg) + len(s_pos)
+            generation_log["sst2"]["generation_time_seconds"] = time.perf_counter() - start_time
+            generation_log["sst2"]["total_retries"] = neg_generation_log["total_retries"] + pos_generation_log["total_retries"]
+            generation_log["sst2"]["items_generated"] = len(s_neg) + len(s_pos)
+            generation_log["sst2"]["aborted"] = neg_generation_log["aborted"] or pos_generation_log["aborted"]
 
             snli_start_time = time.perf_counter()
 
             # SNLI
-            snli_ent_data, ent_generation_log = generate_synthetic_data.generate_synthetic_snli(model_name, config['generation_seed'], "entails", 0, n)
+            snli_ent_data, ent_generation_log = generate_synthetic_data.generate_synthetic_snli(model_name, config['generation_seed'], "entails", 0, n, batch_size, max_attempts)
             s_ent = Dataset.from_list(snli_ent_data)
-            snli_con_data, con_generation_log = generate_synthetic_data.generate_synthetic_snli(model_name, config['generation_seed'], "contradicts", 1, n)
+            snli_con_data, con_generation_log = generate_synthetic_data.generate_synthetic_snli(model_name, config['generation_seed'], "contradicts", 1, n, batch_size, max_attempts)
             s_con = Dataset.from_list(snli_con_data)
-            snli_neu_data, neu_generation_log = generate_synthetic_data.generate_synthetic_snli(model_name, config['generation_seed'], "is neutral with respect to", 2, n)
+            snli_neu_data, neu_generation_log = generate_synthetic_data.generate_synthetic_snli(model_name, config['generation_seed'], "is neutral with respect to", 2, n, batch_size, max_attempts)
             s_neu = Dataset.from_list(snli_neu_data)
 
             # Write generated datasets to disk
@@ -89,14 +96,16 @@ def main():
             generation_log["snli"]["neutral"] = neu_generation_log
 
             # Task Logs
-            generation_log["snli"]["total_generation_time_seconds"] = time.perf_counter() - snli_start_time
-            generation_log["snli"]["attempts"] = ent_generation_log["attempts"] + con_generation_log["attempts"] + neu_generation_log["attempts"]
-            generation_log["snli"]["total_examples_generated"] = len(s_ent) + len(s_con) + len(s_neu)
+            generation_log["snli"]["generation_time_seconds"] = time.perf_counter() - snli_start_time
+            generation_log["snli"]["total_retries"] = ent_generation_log["total_retries"] + con_generation_log["total_retries"] + neu_generation_log["total_retries"]
+            generation_log["snli"]["items_generated"] = len(s_ent) + len(s_con) + len(s_neu)
+            generation_log["snli"]["aborted"] = ent_generation_log["aborted"] or con_generation_log["aborted"] or neu_generation_log["aborted"]
 
             # Total Generation Logs
-            generation_log["total_generation_time_seconds"] = time.perf_counter() - start_time
-            generation_log["attempts"] = generation_log["sst2"]["attempts"] + generation_log["snli"]["attempts"]
-            generation_log["total_examples_generated"] = generation_log["sst2"]["total_examples_generated"] + generation_log["snli"]["total_examples_generated"]
+            generation_log["generation_time_seconds"] = time.perf_counter() - start_time
+            generation_log["total_retries"] = generation_log["sst2"]["total_retries"] + generation_log["snli"]["total_retries"]
+            generation_log["items_generated"] = generation_log["sst2"]["items_generated"] + generation_log["snli"]["items_generated"]
+            generation_log["aborted"] = generation_log["sst2"]["aborted"] or generation_log["snli"]["aborted"]
 
             # Define path to save results
             os.makedirs(data_dir, exist_ok=True)
@@ -105,6 +114,12 @@ def main():
             # Save results to a JSON file
             with open(generation_log_file_path, "w") as f:
                 json.dump(generation_log, f, indent=4)
+
+            if generation_log["aborted"]:
+                print("! Generation was aborted by the user for at least one class.")
+                print("! Aborting training and evaluation pipeline due to incomplete synthetic data.")
+                return
+
         except Exception as e:
             print(f"Error during synthetic data generation: {e}")
             print(f"! Aborting training and evaluation pipeline due to generation failure.")

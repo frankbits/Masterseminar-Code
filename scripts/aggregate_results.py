@@ -33,15 +33,35 @@ def load_synthetic_log(log_path):
 
 
 def flatten_synthetic_log(log_data):
+    """
+    Flacht den synthetic_generation_log.json Inhalt in zwei DataFrames auf.
+
+    Erwartete Struktur (neu, passend zu generate_synthetic_data()):
+      {
+        "sst2": {
+          "negative": {"config": {...}, "batches": [...], "total_retries": int,
+                       "aborted": bool, "generation_time_seconds": float, "items_generated": int},
+          "positive": {...},
+          "generation_time_seconds": float, "total_retries": int,
+          "items_generated": int, "aborted": bool
+        },
+        "snli": {... gleiche Struktur mit entails/contradicts/neutral ...},
+        "generation_time_seconds": float, "total_retries": int,
+        "items_generated": int, "aborted": bool
+      }
+    """
     totals_rows = []
     task_totals_rows = []
     tasks_rows = []
+
     totals_rows.append({
         "task": "TOTAL",
-        "generation_time_seconds": log_data.get("total_generation_time_seconds"),
-        "attempts": log_data.get("attempts"),
-        "examples_generated": log_data.get("total_examples_generated")
+        "generation_time_seconds": log_data.get("generation_time_seconds"),
+        "total_retries": log_data.get("total_retries"),
+        "items_generated": log_data.get("items_generated"),
+        "aborted": log_data.get("aborted"),
     })
+
     for key, value in log_data.items():
         if not isinstance(value, dict):
             continue
@@ -50,24 +70,34 @@ def flatten_synthetic_log(log_data):
         task_data = value
         task_totals_rows.append({
             "task": task,
-            "generation_time_seconds": task_data.get("total_generation_time_seconds"),
-            "attempts": task_data.get("attempts"),
-            "examples_generated": task_data.get("total_examples_generated")
+            "generation_time_seconds": task_data.get("generation_time_seconds"),
+            "total_retries": task_data.get("total_retries"),
+            "items_generated": task_data.get("items_generated"),
+            "aborted": task_data.get("aborted"),
         })
         for subclass, subclass_data in task_data.items():
+            # per-class logs are identifiable by having a "config" key
             if isinstance(subclass_data, dict) and "config" in subclass_data:
+                cfg = subclass_data.get("config", {})
+                batches = subclass_data.get("batches", [])
                 tasks_rows.append({
                     "task": task,
                     "subclass": subclass,
                     "generation_time_seconds": subclass_data.get("generation_time_seconds"),
-                    "attempts": subclass_data.get("attempts"),
-                    "examples_generated": subclass_data.get("config").get("n")
+                    "total_retries": subclass_data.get("total_retries"),
+                    "items_generated": subclass_data.get("items_generated"),
+                    "items_requested": cfg.get("n"),
+                    "batch_size": cfg.get("batch_size"),
+                    "num_batches": len(batches),
+                    "aborted": subclass_data.get("aborted"),
                 })
+
     task_totals_rows.append({
         "task": "",
         "generation_time_seconds": "",
-        "attempts": "",
-        "examples_generated": ""
+        "total_retries": "",
+        "items_generated": "",
+        "aborted": "",
     })
     task_totals_rows.extend(totals_rows)
     task_totals_df = pd.DataFrame(task_totals_rows)
