@@ -35,15 +35,39 @@ Example-Configuration:
 
 ```yaml
 project_name: "master_seminar_comparison"
-seed: 42
+
+# Generation-Seed for reproducibility.
+# This ensures that the same random samples are generated across different runs of the experiments.
+generation_seed: 42
+
+# Data-Seed for reproducibility.
+# Seed for shuffling and splitting the human-annotated dataset into training and evaluation sets.
+# This ensures that the same data splits are used across different runs of the experiments.
+data_seed: 42
+
+# Training-Seeds for reproducibility.
+# This ensures that the same random initialization and data shuffling occur across different runs of the experiments using the same seed.
+# This should be set to three different values (e.g.: [42, 123, 7]) to run experiments with different random seeds and average the results for more robust conclusions.
+seeds: [42, 123, 7]
+
+# The base model used for generating synthetic data.
+# This should be a model that is capable of few-shot prompting and can generate high-quality text.
+ollama_model: "llama3.1"
+# The downstream model to be trained and evaluated on the human-annotated and synthetic datasets.
+# This should be a small model that is intended to be fine-tuned for the downstream tasks, such as sentiment analysis or natural language inference.
 model_name: "bert-base-uncased"
 
-# The number of samples per class for synthetic generation
-# and for the human-annotated baseline subsets.
-sample_size_per_class: 500
+# The number of samples per class for synthetic or human-annotated data.
+# This is used to control the size of the training dataset for each experiment.
+# has to be divisible by the number of datasets used for the mixed setting (human and synthetic -> 2 datasets, so sample_size_per_class has to be divisible by 2).
+sample_size_per_class: 1000 #TODO: Allow multiple values for this parameter to automatically run experiments with different dataset sizes.
+# The number of samples to generate in each batch when generating synthetic data.
+# The `sample_size_per_class` gets divided into batches of this size for generation.
+generation_batch_size: 50
+# The maximum number of attempts to automatically generate a valid sample for each class during synthetic data generation.
+generation_max_attempts: 3
 
-ollama_model: "llama3.1"
-
+# Training parameters for the fine-tuning of the downstream model on the human-annotated and synthetic datasets.
 training_params:
   num_epochs: 3
   batch_size_train: 16
@@ -68,8 +92,8 @@ experiments:
     data_type: "synthetic"
     num_labels: 2
     synthetic_data_paths:
-      - "./data/sst2/synthetic_negative.json"
-      - "./data/sst2/synthetic_positive.json"
+      - "./data/sst2/synthetic_negative.jsonl"
+      - "./data/sst2/synthetic_positive.jsonl"
 
   - name: "SST2_Mixed"
     task: "sst2"
@@ -77,8 +101,8 @@ experiments:
     num_labels: 2
     # human_data_source: "stanfordnlp/sst2"
     synthetic_data_paths:
-      - "./data/sst2/synthetic_negative.json"
-      - "./data/sst2/synthetic_positive.json"
+      - "./data/sst2/synthetic_negative.jsonl"
+      - "./data/sst2/synthetic_positive.jsonl"
 
   - name: "SNLI_Human"
     task: "snli"
@@ -91,9 +115,9 @@ experiments:
     data_type: "synthetic"
     num_labels: 3
     synthetic_data_paths:
-      - "./data/snli/synthetic_entailment.json"
-      - "./data/snli/synthetic_contradiction.json"
-      - "./data/snli/synthetic_neutral.json"
+      - "./data/snli/synthetic_entailment.jsonl"
+      - "./data/snli/synthetic_contradiction.jsonl"
+      - "./data/snli/synthetic_neutral.jsonl"
 
   - name: "SNLI_Mixed"
     task: "snli"
@@ -101,7 +125,7 @@ experiments:
     num_labels: 3
     # human_data_source: "stanfordnlp/snli"
     synthetic_data_paths:
-      - "./data/snli/synthetic_entailment.json"
-      - "./data/snli/synthetic_contradiction.json"
-      - "./data/snli/synthetic_neutral.json"
+      - "./data/snli/synthetic_entailment.jsonl"
+      - "./data/snli/synthetic_contradiction.jsonl"
+      - "./data/snli/synthetic_neutral.jsonl"
 ```
