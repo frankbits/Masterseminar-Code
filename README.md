@@ -85,7 +85,6 @@ experiments:
     task: "sst2"
     data_type: "human"
     num_labels: 2
-    # human_data_source: "stanfordnlp/sst2" # Not strictly needed here as it's loaded once globally
 
   - name: "SST2_Synthetic"
     task: "sst2"
@@ -99,7 +98,6 @@ experiments:
     task: "sst2"
     data_type: "mixed"
     num_labels: 2
-    # human_data_source: "stanfordnlp/sst2"
     synthetic_data_paths:
       - "./data/sst2/synthetic_negative.jsonl"
       - "./data/sst2/synthetic_positive.jsonl"
@@ -108,7 +106,6 @@ experiments:
     task: "snli"
     data_type: "human"
     num_labels: 3
-    # human_data_source: "stanfordnlp/snli"
 
   - name: "SNLI_Synthetic"
     task: "snli"
@@ -123,7 +120,6 @@ experiments:
     task: "snli"
     data_type: "mixed"
     num_labels: 3
-    # human_data_source: "stanfordnlp/snli"
     synthetic_data_paths:
       - "./data/snli/synthetic_entailment.jsonl"
       - "./data/snli/synthetic_contradiction.jsonl"
