@@ -172,6 +172,8 @@ Aggregate the results:
 python scripts/aggregate_results.py
 ```
 
+Copy the used synthetic data and the aggregated results to the separate folder, using the folder structure described above.
+
 Repeat this process for all desired dataset sizes.
 
 5. In the external folder, generate the latex tables and plots:
