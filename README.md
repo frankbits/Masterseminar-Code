@@ -129,3 +129,76 @@ experiments:
       - "./data/snli/synthetic_contradiction.jsonl"
       - "./data/snli/synthetic_neutral.jsonl"
 ```
+
+## Running, aggregating and evaluating experiments
+
+1. Run the pipeline with the desired configuration:
+
+Set the `sample_size_per_class` in the `config.yaml` file to the desired biggest value (e.g., 1000) and run:
+
+```shell
+python main.py
+```
+
+2. Aggregate the results from all defined experiments and seeds:
+
+```shell
+python scripts/aggregate_results.py
+```
+
+3. Copy the used synthetic data and the aggregated results to a separate folder:
+
+Copy the `data` and `results` folders to a separate folder using the following folder structure:
+
+```
+root/
+├── results/
+│   ├── {sample_size_per_class}_seeds-{seed1-seed2-...}/
+│   │   ├── data/
+│   │   └── results/
+│   ├── {sample_size_per_class2}_seeds-{seed1-seed2-...}/
+│   │   ├── data/
+│   │   └── results/
+│   └── ...
+```
+
+4. Repeat for all smaller `sample_size_per_class`-values:
+
+Set the `sample_size_per_class` in the `config.yaml` file to the desired smaller value (e.g., 500) and run, while skipping the generation step (reusing the already generated synthetic data):
+
+```shell
+python main.py --skip_gen
+```
+
+Aggregate the results:
+
+```shell
+python scripts/aggregate_results.py
+```
+
+Repeat this process for all desired dataset sizes.
+
+5. In the external folder, generate the latex tables and plots:
+
+You have a folder structure like this:
+```
+root/
+├── results/
+│   ├── 1000_seeds-42-123-7/
+│   │   ├── data/
+│   │   └── results/
+│   ├── 500_seeds-42-123-7/
+│   │   ├── data/
+│   │   └── results/
+│   └── ...
+```
+
+Copy the script to generate the latex tables and plots into the external folder and run it:
+
+```shell
+python generate_latex_tables_and_plots.py
+```
+
+The script will generate the latex tables and plots in the `latex_figures` folder, based on the aggregated results from all experiments and seeds in the `results` folder.
+
+6. Use the data, results and generated latex tables and plots for evaluation and discussion of the experiments.
